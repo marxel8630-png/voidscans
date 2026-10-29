@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VoidScans - Read Manhwa & Manga Free</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background-color: #0b0a0e; color: #f3f4f6; font-family: system-ui, -apple-system, sans-serif; }
+    /* Seamless Webtoon Scroll - Zero gap between images */
+    .reader-container img { display: block; width: 100%; max-width: 800px; margin: 0 auto; height: auto; user-select: none; }
+    /* Custom Purple Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #121017; }
+    ::-webkit-scrollbar-thumb { background: #7c3aed; border-radius: 3px; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- TOP NAVIGATION BAR -->
+  <nav id="main-nav" class="bg-[#14111d] border-b border-purple-900/40 sticky top-0 z-50 px-4 py-3">
+    <div class="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <div onclick="showHome()" class="flex items-center gap-2 cursor-pointer">
+        <div class="w-8 h-8 rounded-lg bg-purple-600 flex items-center justify-center font-black text-white shadow-lg shadow-purple-600/40">V</div>
+        <span class="text-xl font-extrabold tracking-wide text-white">VOID<span class="text-purple-500">SCANS</span></span>
+      </div>
+
+      <div class="flex items-center gap-3 flex-1 max-w-md justify-end">
+        <input id="search-input" oninput="handleSearch()" type="text" placeholder="Search series..." 
+          class="w-full bg-[#1e1a2b] text-sm text-white px-3 py-2 rounded-lg border border-purple-800/40 focus:outline-none focus:border-purple-500">
+        <button onclick="showBookmarks()" class="bg-[#1e1a2b] hover:bg-purple-600/30 border border-purple-700/40 px-3 py-2 rounded-lg text-sm font-medium text-purple-300 whitespace-nowrap transition">
+          ★ Bookmarks
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- MAIN CONTENT AREA -->
+  <main class="flex-1 max-w-6xl w-full mx-auto p-4">
+
+    <!-- 1. HOMEPAGE VIEW -->
+    <div id="home-view">
+      <!-- Featured Banner -->
+      <div id="featured-banner" class="relative rounded-2xl overflow-hidden mb-8 border border-purple-800/40 bg-gradient-to-r from-[#1c152e] via-[#2a1b4e] to-[#14111d] p-6 md:p-8 flex flex-col md:flex-row items-center gap-6 shadow-xl">
+        <!-- Populated by JS -->
+      </div>
+
+      <!-- Genre Filter Pills -->
+      <div id="genre-bar" class="flex gap-2 overflow-x-auto pb-3 mb-6">
+        <!-- Populated by JS -->
+      </div>
+
+      <!-- Latest Updates Header -->
+      <div class="flex items-center justify-between mb-4">
+        <h2 id="grid-title" class="text-lg font-bold text-white flex items-center gap-2">
+          <span class="w-2 h-5 bg-purple-500 rounded-full inline-block"></span> Latest Updates
+        </h2>
+      </div>
+
+      <!-- Manga Grid -->
+      <div id="manga-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
+    <!-- 2. SERIES DETAIL VIEW -->
+    <div id="series-view" class="hidden">
+      <button onclick="showHome()" class="text-sm text-purple-400 hover:text-purple-300 mb-4 inline-flex items-center gap-1">
+        ← Back to Home
+      </button>
+      <div id="series-details" class="bg-[#14111d] border border-purple-900/30 rounded-2xl p-5 md:p-8 mb-6"></div>
+      <div class="bg-[#14111d] border border-purple-900/30 rounded-2xl p-5">
+        <h3 class="text-lg font-bold mb-4 border-b border-purple-900/40 pb-2">Chapters</h3>
+        <div id="chapter-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-96 overflow-y-auto pr-1"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- 3. FULLSCREEN WEBTOON READER VIEW -->
+  <div id="reader-view" class="hidden fixed inset-0 bg-[#070609] z-50 overflow-y-auto">
+    <!-- Top Floating Bar -->
+    <div id="reader-top-bar" class="sticky top-0 z-50 bg-[#14111d]/95 backdrop-blur border-b border-purple-900/40 px-4 py-3 flex items-center justify-between transition-transform duration-200">
+      <button id="reader-back-btn" class="text-sm font-medium text-purple-400 hover:text-white">← Series</button>
+      <div id="reader-title" class="text-sm font-bold text-white truncate max-w-[45%]"></div>
+      <select id="reader-chapter-select" onchange="changeChapterFromSelect(this.value)" class="bg-[#1e1a2b] text-xs text-white px-2.5 py-1.5 rounded border border-purple-700/50 focus:outline-none"></select>
+    </div>
+
+    <!-- Comic Strip Images (Click anywhere to hide/show bars) -->
+    <div id="reader-images" onclick="toggleReaderBars()" class="reader-container min-h-screen py-2 cursor-pointer"></div>
+
+    <!-- Bottom Navigation Bar -->
+    <div class="max-w-xl mx-auto px-4 py-8 flex items-center justify-between gap-4">
+      <button id="prev-chap-btn" class="flex-1 bg-[#1e1a2b] hover:bg-purple-600 text-white py-3 rounded-xl font-semibold text-sm border border-purple-800/40 transition disabled:opacity-30">← Previous</button>
+      <button onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="bg-purple-900/40 text-purple-300 px-4 py-3 rounded-xl text-sm font-bold">↑ Top</button>
+      <button id="next-chap-btn" class="flex-1 bg-purple-600 hover:bg-purple-500 text-white py-3 rounded-xl font-semibold text-sm shadow-lg shadow-purple-600/30 transition disabled:opacity-30">Next →</button>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="bg-[#14111d] border-t border-purple-900/30 text-center py-6 text-xs text-gray-500 mt-12">
+    <p class="font-bold text-gray-300 mb-1">VOID<span class="text-purple-500">SCANS</span></p>
+    <p>All comics and translations are property of their respective creators.</p>
+  </footer>
+
+  <!-- ==========================================
+       YOUR MANGA DATABASE (EDIT HERE TO ADD SERIES)
+       ========================================== -->
+  <script>
+    const MANGA_DB = [
+      {
+        id: "shadow-monarch",
+        title: "Rise of the Shadow Sovereign",
+        status: "Ongoing",
+        rating: "9.9",
+        genres: ["Action", "Fantasy", "System"],
+        cover: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500&auto=format&fit=crop&q=80",
+        synopsis: "In a world where dungeons open across the globe, the weakest E-rank hunter awakens a secret necromancer system after a fatal double dungeon raid.",
+        featured: true,
+        chapters: [
+          {
+            num: 1,
+            title: "The Double Dungeon",
+            date: "2 days ago",
+            pages: [
+              "https://placehold.co/800x1200/150d2a/a855f7?text=Chapter+1+-+Panel+1%0A%0A(Awakening+in+the+Altar)",
+              "https://placehold.co/800x1200/0f0a1c/ffffff?text=Chapter+1+-+Panel+2%0A%0A%5B+SYSTEM+NOTIFICATION+%5D%0AYou+have+met+the+requirements.",
+              "https://placehold.co/800x1200/1e1136/c084fc?text=Chapter+1+-+Panel+3%0A%0A%22ARISE.%22"
+            ]
+          },
+          {
+            num: 2,
+            title: "Second Awakening",
+            date: "Today",
+            pages: [
+              "https://placehold.co/800x1200/150d2a/a855f7?text=Chapter+2+-+Panel+1%0A%0AEntering+the+Instant+Dungeon",
+              "https://placehold.co/800x1200/1e1136/ffffff?text=Chapter+2+-+Panel+2%0A%0ABoss+Battle+Begins!"
+            ]
+          }
+        ]
+      },
+      {
+        id: "regression-sword",
+        title: "Return of the Ruined Swordmaster",
+        status: "Ongoing",
+        rating: "9.6",
+        genres: ["Action", "Martial Arts", "Regression"],
+        cover: "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=500&auto=format&fit=crop&q=80",
+        synopsis: "Betrayed by his own clan after reaching the pinnacle of swordsmanship, he opens his eyes 20 years in the past in his crippled teenage body.",
+        featured: false,
+        chapters: [
+          {
+            num: 1,
+            title: "Twenty Years Ago",
+            date: "3 days ago",
+            pages: [
+              "https://placehold.co/800x1200/1a1025/e9d5ff?text=Swordmaster+Ch.1+-+Panel+1",
+              "https://placehold.co/800x1200/12091c/a855f7?text=Swordmaster+Ch.1+-+Panel+2"
+            ]
+          }
+        ]
+      },
+      {
+        id: "academy-mage",
+        title: "The Infinite Archmage of the Academy",
+        status: "Ongoing",
+        rating: "9.4",
+        genres: ["Fantasy", "Magic", "School Life"],
+        cover: "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=500&auto=format&fit=crop&q=80",
+        synopsis: "Born as a commoner with infinite mana capacity, he enrolls in the empire's most prestigious magic academy to uncover ancient forbidden spells.",
+        featured: false,
+        chapters: [
+          {
+            num: 1,
+            title: "Entrance Exam",
+            date: "1 week ago",
+            pages: [
+              "https://placehold.co/800x1200/0f172a/38bdf8?text=Archmage+Ch.1+-+Panel+1",
+              "https://placehold.co/800x1200/1e1b4b/818cf8?text=Archmage+Ch.1+-+Panel+2"
+            ]
+          }
+        ]
+      },
+      {
+        id: "murim-login",
+        title: "Heavenly Demon's Modern System",
+        status: "Completed",
+        rating: "9.8",
+        genres: ["Martial Arts", "Action", "System"],
+        cover: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=500&auto=format&fit=crop&q=80",
+        synopsis: "The leader of the Demonic Cult reincarnates into modern-day Seoul where hunters and gates rule society.",
+        featured: false,
+        chapters: [
+          {
+            num: 1,
+            title: "Demonic Qi in Seoul",
+            date: "Yesterday",
+            pages: [
+              "https://placehold.co/800x1200/2e1065/f43f5e?text=Heavenly+Demon+Ch.1+-+Panel+1",
+              "https://placehold.co/800x1200/170936/fb7185?text=Heavenly+Demon+Ch.1+-+Panel+2"
+            ]
+          }
+        ]
+      }
+    ];
+
+    // ==========================================
+    // WEBSITE ENGINE (HANDLES ALL CLICKS & PAGES)
+    // ==========================================
+    let currentSeries = null;
+    let currentChapterIndex = 0;
+    let activeGenre = "All";
+
+    function getBookmarks() {
+      return JSON.parse(localStorage.getItem("void_bookmarks") || "[]");
+    }
+
+    function toggleBookmark(id) {
+      let bms = getBookmarks();
+      if (bms.includes(id)) bms = bms.filter(item => item !== id);
+      else bms.push(id);
+      localStorage.setItem("void_bookmarks", JSON.stringify(bms));
+      openSeries(id);
+    }
+
+    function renderFeatured() {
+      const feat = MANGA_DB.find(m => m.featured) || MANGA_DB[0];
+      const latestChap = feat.chapters[feat.chapters.length - 1];
+      document.getElementById("featured-banner").innerHTML = `
+        <img src="${feat.cover}" class="w-32 h-44 md:w-40 md:h-56 object-cover rounded-xl shadow-2xl border border-purple-500/40">
+        <div class="flex-1 text-center md:text-left">
+          <span class="bg-purple-600 text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">🔥 Featured Series</span>
+          <h1 class="text-2xl md:text-4xl font-black text-white mt-2 mb-2">${feat.title}</h1>
+          <p class="text-gray-300 text-sm line-clamp-2 mb-4 max-w-xl">${feat.synopsis}</p>
+          <div class="flex flex-wrap justify-center md:justify-start gap-3">
+            <button onclick="openReader('${feat.id}', ${feat.chapters.length - 1})" class="bg-purple-600 hover:bg-purple-500 text-white font-bold px-5 py-2.5 rounded-xl text-sm shadow-lg shadow-purple-600/40 transition">
+              Read Chapter ${latestChap.num}
+            </button>
+            <button onclick="openSeries('${feat.id}')" class="bg-[#1e1a2b] hover:bg-purple-900/40 text-purple-300 font-semibold px-5 py-2.5 rounded-xl text-sm border border-purple-700/40 transition">
+              Series Info
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderGenres() {
+      const genres = ["All", "Action", "Fantasy", "System", "Martial Arts", "Regression", "Magic"];
+      document.getElementById("genre-bar").innerHTML = genres.map(g => `
+        <button onclick="filterByGenre('${g}')" class="px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition ${activeGenre === g ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30' : 'bg-[#14111d] text-gray-400 hover:text-white border border-purple-900/40'}">
+          ${g}
+        </button>
+      `).join("");
+    }
+
+    function filterByGenre(genre) {
+      activeGenre = genre;
+      renderGenres();
+      const filtered = genre === "All" ? MANGA_DB : MANGA_DB.filter(m => m.genres.includes(genre));
+      document.getElementById("grid-title").innerHTML = `<span class="w-2 h-5 bg-purple-500 rounded-full inline-block"></span> ${genre === 'All' ? 'Latest Updates' : genre + ' Series'}`;
+      renderGrid(filtered);
+    }
+
+    function renderGrid(list) {
+      const grid = document.getElementById("manga-grid");
+      if (list.length === 0) {
+        grid.innerHTML = `<p class="text-gray-400 col-span-full py-8 text-center">No series found.</p>`;
+        return;
+      }
+      grid.innerHTML = list.map(m => {
+        const lastChaps = [...m.chapters].reverse().slice(0, 2);
+        return `
+          <div class="bg-[#14111d] border border-purple-900/30 rounded-xl overflow-hidden hover:border-purple-500/60 transition flex flex-col">
+            <div onclick="openSeries('${m.id}')" class="relative cursor-pointer group">
+              <img src="${m.cover}" class="w-full h-56 sm:h-64 object-cover group-hover:scale-105 transition duration-300">
+              <span class="absolute top-2 left-2 bg-black/80 text-purple-400 text-[10px] font-bold px-2 py-0.5 rounded border border-purple-500/30">${m.status}</span>
+              <span class="absolute top-2 right-2 bg-purple-600 text-white text-[10px] font-bold px-2 py-0.5 rounded">★ ${m.rating}</span>
+            </div>
+            <div class="p-3 flex-1 flex flex-col justify-between">
+              <h3 onclick="openSeries('${m.id}')" class="font-bold text-sm text-white hover:text-purple-400 cursor-pointer line-clamp-1 mb-2">${m.title}</h3>
+              <div class="space-y-1.5">
+                ${lastChaps.map(c => {
+                  const idx = m.chapters.findIndex(ch => ch.num === c.num);
+                  return `
+                    <button onclick="openReader('${m.id}', ${idx})" class="w-full bg-[#1e1a2b] hover:bg-purple-600/30 border border-purple-800/30 rounded-lg px-2.5 py-1.5 flex items-center justify-between text-xs transition">
+                      <span class="font-semibold text-gray-200">Ch. ${c.num}</span>
+                      <span class="text-[10px] text-gray-400">${c.date}</span>
+                    </button>
+                  `;
+                }).join("")}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function openSeries(id) {
+      const m = MANGA_DB.find(item => item.id === id);
+      currentSeries = m;
+      const isBookmarked = getBookmarks().includes(m.id);
+
+      document.getElementById("home-view").classList.add("hidden");
+      document.getElementById("series-view").classList.remove("hidden");
+
+      document.getElementById("series-details").innerHTML = `
+        <div class="flex flex-col sm:flex-row gap-6 items-center sm:items-start">
+          <img src="${m.cover}" class="w-40 h-56 object-cover rounded-xl shadow-lg border border-purple-500/30">
+          <div class="flex-1 text-center sm:text-left">
+            <div class="flex flex-wrap justify-center sm:justify-start gap-2 mb-2">
+              <span class="bg-purple-600/20 text-purple-300 border border-purple-500/30 text-xs font-bold px-2.5 py-0.5 rounded">${m.status}</span>
+              <span class="bg-yellow-500/20 text-yellow-300 text-xs font-bold px-2.5 py-0.5 rounded">★ ${m.rating}</span>
+            </div>
+            <h1 class="text-2xl font-black text-white mb-2">${m.title}</h1>
+            <div class="flex flex-wrap justify-center sm:justify-start gap-1.5 mb-4">
+              ${m.genres.map(g => `<span class="bg-[#1e1a2b] text-gray-300 text-xs px-2.5 py-1 rounded">${g}</span>`).join("")}
+            </div>
+            <p class="text-sm text-gray-300 mb-5 leading-relaxed">${m.synopsis}</p>
+            <div class="flex flex-wrap justify-center sm:justify-start gap-3">
+              <button onclick="openReader('${m.id}', 0)" class="bg-purple-600 hover:bg-purple-500 text-white font-bold px-5 py-2.5 rounded-xl text-sm shadow-lg shadow-purple-600/30 transition">
+                Read First Chapter
+              </button>
+              <button onclick="toggleBookmark('${m.id}')" class="px-5 py-2.5 rounded-xl text-sm font-bold border transition ${isBookmarked ? 'bg-purple-900/50 border-purple-400 text-purple-200' : 'bg-[#1e1a2b] border-purple-800/40 text-gray-300'}">
+                ${isBookmarked ? '★ Bookmarked' : '☆ Add Bookmark'}
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const chList = [...m.chapters].reverse();
+      document.getElementById("chapter-list").innerHTML = chList.map(c => {
+        const idx = m.chapters.findIndex(ch => ch.num === c.num);
+        return `
+          <div onclick="openReader('${m.id}', ${idx})" class="bg-[#1e1a2b] hover:bg-purple-600/20 border border-purple-800/30 hover:border-purple-500 p-3 rounded-xl flex items-center justify-between cursor-pointer transition">
+            <div>
+              <span class="font-bold text-sm text-white">Chapter ${c.num}</span>
+              <span class="text-xs text-gray-400 ml-2">${c.title || ''}</span>
+            </div>
+            <span class="text-xs text-purple-400">${c.date}</span>
+          </div>
+        `;
+      }).join("");
+      window.scrollTo(0, 0);
+    }
+
+    function openReader(seriesId, chapIdx) {
+      const m = MANGA_DB.find(item => item.id === seriesId);
+      currentSeries = m;
+      currentChapterIndex = Number(chapIdx);
+      const chap = m.chapters[currentChapterIndex];
+
+      document.getElementById("reader-view").classList.remove("hidden");
+      document.body.style.overflow = "hidden";
+
+      document.getElementById("reader-title").innerText = `${m.title} - Ch. ${chap.num}`;
+      document.getElementById("reader-back-btn").onclick = () => closeReader(m.id);
+
+      const select = document.getElementById("reader-chapter-select");
+      select.innerHTML = m.chapters.map((c, idx) => `
+        <option value="${idx}" ${idx === currentChapterIndex ? 'selected' : ''}>Chapter ${c.num}</option>
+      `).join("");
+
+      document.getElementById("reader-images").innerHTML = chap.pages.map(url => `
+        <img src="${url}" loading="lazy" alt="Comic Page">
+      `).join("");
+
+      const prevBtn = document.getElementById("prev-chap-btn");
+      const nextBtn = document.getElementById("next-chap-btn");
+      prevBtn.disabled = currentChapterIndex === 0;
+      nextBtn.disabled = currentChapterIndex === m.chapters.length - 1;
+      prevBtn.onclick = () => openReader(m.id, currentChapterIndex - 1);
+      nextBtn.onclick = () => openReader(m.id, currentChapterIndex + 1);
+
+      document.getElementById("reader-view").scrollTo(0, 0);
+    }
+
+    function changeChapterFromSelect(idx) {
+      openReader(currentSeries.id, Number(idx));
+    }
+
+    function closeReader(seriesId) {
+      document.getElementById("reader-view").classList.add("hidden");
+      document.body.style.overflow = "auto";
+      openSeries(seriesId);
+    }
+
+    function toggleReaderBars() {
+      const bar = document.getElementById("reader-top-bar");
+      bar.classList.toggle("-translate-y-full");
+    }
+
+    function showHome() {
+      document.getElementById("series-view").classList.add("hidden");
+      document.getElementById("home-view").classList.remove("hidden");
+      activeGenre = "All";
+      renderGenres();
+      document.getElementById("grid-title").innerHTML = `<span class="w-2 h-5 bg-purple-500 rounded-full inline-block"></span> Latest Updates`;
+      renderGrid(MANGA_DB);
+    }
+
+    function showBookmarks() {
+      document.getElementById("series-view").classList.add("hidden");
+      document.getElementById("home-view").classList.remove("hidden");
+      const bms = getBookmarks();
+      const saved = MANGA_DB.filter(m => bms.includes(m.id));
+      document.getElementById("grid-title").innerHTML = `<span class="w-2 h-5 bg-purple-500 rounded-full inline-block"></span> Your Bookmarked Series (${saved.length})`;
+      renderGrid(saved);
+    }
+
+    function handleSearch() {
+      const q = document.getElementById("search-input").value.toLowerCase();
+      document.getElementById("series-view").classList.add("hidden");
+      document.getElementById("home-view").classList.remove("hidden");
+      const filtered = MANGA_DB.filter(m => m.title.toLowerCase().includes(q));
+      document.getElementById("grid-title").innerHTML = `<span class="w-2 h-5 bg-purple-500 rounded-full inline-block"></span> Search Results`;
+      renderGrid(filtered);
+    }
+
+    // Initialize site
+    renderFeatured();
+    renderGenres();
+    renderGrid(MANGA_DB);
+  </script>
+</body>
+</html>
