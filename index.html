@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VoidScans - Read Manhwa & Manga</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background-color: #09080d; color: #f3f4f6; font-family: system-ui, -apple-system, sans-serif; overflow-x: hidden; }
+    .reader-container img { display: block; margin: 0 auto; height: auto; user-select: none; transition: max-width 0.2s; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #121017; }
+    ::-webkit-scrollbar-thumb { background: #7c3aed; border-radius: 3px; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- TOP NAVIGATION BAR -->
+  <nav class="bg-[#120f1c]/95 backdrop-blur-md border-b border-purple-900/40 sticky top-0 z-40 px-4 sm:px-6 py-3">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <div onclick="showHome()" class="flex items-center gap-2.5 cursor-pointer">
+        <div class="w-9 h-9 rounded-xl bg-purple-600 flex items-center justify-center font-bold text-white text-sm shadow-md">V</div>
+        <div>
+          <span class="text-lg font-bold tracking-wider text-white">VOID<span class="text-purple-400">SCANS</span></span>
+          <span class="block text-[10px] text-gray-400 uppercase tracking-widest">Reader</span>
+        </div>
+      </div>
+
+      <div class="flex-1 max-w-md mx-auto w-full order-3 md:order-2">
+        <div class="relative flex items-center">
+          <input id="search-input" oninput="handleSearch()" type="text" placeholder="Search series..." 
+            class="w-full bg-[#1b162a] text-xs sm:text-sm text-white pl-3 pr-20 py-2 rounded-lg border border-purple-900/50 focus:outline-none focus:border-purple-500">
+          <button onclick="searchMangaDex()" class="absolute right-1 bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-bold px-2 py-1 rounded transition">
+            API Search
+          </button>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 order-2 md:order-3">
+        <button onclick="openRandomSeries()" class="bg-[#1b162a] hover:bg-purple-900/40 border border-purple-900/40 px-3 py-2 rounded-lg text-xs font-medium text-gray-300 transition">
+          Random
+        </button>
+        <button onclick="showBookmarks()" class="bg-[#1b162a] hover:bg-purple-900/40 border border-purple-900/40 px-3 py-2 rounded-lg text-xs font-medium text-gray-300 transition">
+          Library (<span id="bm-count">0</span>)
+        </button>
+        <button onclick="openAdminModal()" class="bg-purple-600 hover:bg-purple-500 text-white px-3 py-2 rounded-lg text-xs font-bold transition">
+          Upload
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- MAIN CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6">
+
+    <div id="home-view">
+      <!-- Featured Banner -->
+      <div id="featured-banner" class="relative rounded-xl overflow-hidden mb-6 border border-purple-900/40 bg-[#120f1c] p-6 shadow-xl"></div>
+
+      <!-- Continue Reading -->
+      <div id="continue-reading-section" class="hidden mb-6 bg-[#120f1c] border border-purple-900/40 rounded-xl p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-purple-400">Continue Reading</h3>
+          <button onclick="clearHistory()" class="text-[11px] text-gray-500 hover:text-gray-300">Clear</button>
+        </div>
+        <div id="history-list" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3"></div>
+      </div>
+
+      <!-- Main Layout -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2">
+          <div id="genre-bar" class="flex gap-2 overflow-x-auto pb-3 mb-4"></div>
+
+          <div class="flex items-center justify-between mb-4">
+            <h2 id="grid-title" class="text-base font-bold text-white">Latest Updates</h2>
+            <select id="sort-select" onchange="handleSort(this.value)" class="bg-[#1b162a] text-xs text-gray-300 px-3 py-1.5 rounded-lg border border-purple-950 focus:outline-none">
+              <option value="latest">Sort: Latest</option>
+              <option value="rating">Sort: Rating</option>
+              <option value="views">Sort: Views</option>
+              <option value="az">Sort: A-Z</option>
+            </select>
+          </div>
+
+          <div id="manga-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-4"></div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="lg:col-span-1">
+          <div class="bg-[#120f1c] border border-purple-900/40 rounded-xl p-4 sticky top-20">
+            <div class="flex items-center justify-between mb-4 border-b border-purple-900/40 pb-3">
+              <h3 class="font-bold text-white text-xs uppercase tracking-wider">Most Popular</h3>
+              <div class="flex bg-[#1b162a] rounded-lg p-0.5 text-[10px] font-medium">
+                <button onclick="renderTrending('daily')" id="tab-daily" class="px-2.5 py-1 rounded-md bg-purple-600 text-white">Daily</button>
+                <button onclick="renderTrending('weekly')" id="tab-weekly" class="px-2.5 py-1 rounded-md text-gray-400">Weekly</button>
+              </div>
+            </div>
+            <div id="trending-list" class="space-y-3"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SERIES DETAIL VIEW -->
+    <div id="series-view" class="hidden">
+      <button onclick="showHome()" class="text-xs font-medium text-purple-400 hover:text-purple-300 mb-4 inline-flex items-center gap-1 bg-[#120f1c] px-3 py-2 rounded-lg border border-purple-900/40">
+        &larr; Back to Home
+      </button>
+      <div id="series-details" class="bg-[#120f1c] border border-purple-900/40 rounded-xl p-6 mb-6"></div>
+      
+      <div class="bg-[#120f1c] border border-purple-900/40 rounded-xl p-5">
+        <div class="flex items-center justify-between mb-4 border-b border-purple-900/40 pb-3">
+          <h3 class="text-sm font-bold text-white">Chapters</h3>
+          <button onclick="openAddChapterModal()" class="text-xs bg-[#1b162a] hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-900/50 px-3 py-1.5 rounded-lg transition">
+            Add Chapter
+          </button>
+        </div>
+        <div id="chapter-list" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-96 overflow-y-auto pr-1"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- READER VIEW -->
+  <div id="reader-view" class="hidden fixed inset-0 bg-[#050408] z-50 overflow-y-auto">
+    <div class="fixed top-0 left-0 right-0 h-1 bg-purple-950 z-50">
+      <div id="read-progress" class="h-full bg-purple-500 w-0 transition-all duration-75"></div>
+    </div>
+
+    <div id="reader-top-bar" class="sticky top-0 z-40 bg-[#120f1c]/95 backdrop-blur-md border-b border-purple-900/50 px-4 py-2.5 flex items-center justify-between gap-2 transition-transform duration-300">
+      <div class="flex items-center gap-2">
+        <button id="reader-back-btn" class="text-xs bg-[#1b162a] text-gray-300 px-3 py-1.5 rounded-lg border border-purple-900/50">Info</button>
+        <div id="reader-title" class="text-xs font-bold text-white truncate max-w-[180px] sm:max-w-xs"></div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <select id="reader-chapter-select" onchange="changeChapterFromSelect(this.value)" class="bg-[#1b162a] text-xs text-white px-2 py-1.5 rounded-lg border border-purple-900/50 focus:outline-none"></select>
+        <button onclick="toggleReaderMode()" id="mode-btn" class="bg-[#1b162a] text-xs text-gray-300 px-2.5 py-1.5 rounded-lg border border-purple-900/50">Webtoon</button>
+        <button onclick="toggleAutoScroll()" id="autoscroll-btn" class="bg-[#1b162a] text-xs text-gray-300 px-2.5 py-1.5 rounded-lg border border-purple-900/50">Auto Scroll</button>
+      </div>
+    </div>
+
+    <div id="reader-images" onclick="toggleReaderBars()" class="reader-container min-h-screen py-2 cursor-pointer"></div>
+
+    <div id="page-mode-controls" class="hidden max-w-md mx-auto px-4 py-4 flex items-center justify-between gap-4">
+      <button onclick="changeSinglePage(-1)" class="flex-1 bg-[#1b162a] py-2 rounded-lg text-xs border border-purple-900/50">Prev Page</button>
+      <span id="page-indicator" class="text-xs text-purple-400">1 / 1</span>
+      <button onclick="changeSinglePage(1)" class="flex-1 bg-purple-600 py-2 rounded-lg text-xs">Next Page</button>
+    </div>
+
+    <div class="max-w-xl mx-auto px-4 py-8">
+      <div class="flex items-center justify-between gap-3 mb-8">
+        <button id="prev-chap-btn" class="flex-1 bg-[#1b162a] text-white py-3 rounded-lg text-xs font-bold border border-purple-900/50 disabled:opacity-30">Previous</button>
+        <button onclick="document.getElementById('reader-view').scrollTo({top: 0, behavior: 'smooth'})" class="bg-[#1b162a] text-gray-300 px-4 py-3 rounded-lg text-xs font-bold border border-purple-900/50">Top</button>
+        <button id="next-chap-btn" class="flex-1 bg-purple-600 text-white py-3 rounded-lg text-xs font-bold disabled:opacity-30">Next</button>
+      </div>
+
+      <!-- Discussion / Comments -->
+      <div class="bg-[#120f1c] border border-purple-900/40 rounded-xl p-4">
+        <h4 class="font-bold text-xs text-white mb-3 uppercase tracking-wider">Comments</h4>
+        <div class="flex gap-2 mb-3">
+          <input id="comment-name" type="text" placeholder="Name" class="w-1/3 bg-[#1b162a] text-xs text-white px-3 py-2 rounded-lg border border-purple-900/50 focus:outline-none">
+          <input id="comment-text" type="text" placeholder="Write a comment..." class="flex-1 bg-[#1b162a] text-xs text-white px-3 py-2 rounded-lg border border-purple-900/50 focus:outline-none">
+          <button onclick="postComment()" class="bg-purple-600 text-white font-bold px-3 py-2 rounded-lg text-xs">Post</button>
+        </div>
+        <div id="comments-list" class="space-y-2 max-h-60 overflow-y-auto"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN STUDIO MODAL -->
+  <div id="admin-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-[#120f1c] border border-purple-900/50 rounded-xl max-w-lg w-full p-6 shadow-2xl">
+      <div class="flex items-center justify-between mb-4 border-b border-purple-900/40 pb-3">
+        <h3 class="text-sm font-bold text-white uppercase tracking-wider">Upload New Series</h3>
+        <button onclick="closeAdminModal()" class="text-gray-400 hover:text-white font-bold">✕</button>
+      </div>
+      
+      <div class="space-y-3 text-xs">
+        <input id="adm-title" type="text" placeholder="Series Title" class="w-full bg-[#1b162a] text-white p-2.5 rounded-lg border border-purple-900/50">
+        <div class="grid grid-cols-2 gap-2">
+          <input id="adm-genres" type="text" placeholder="Genres (Action, Fantasy)" class="bg-[#1b162a] text-white p-2.5 rounded-lg border border-purple-900/50">
+          <input id="adm-rating" type="text" placeholder="Rating (9.8)" value="9.7" class="bg-[#1b162a] text-white p-2.5 rounded-lg border border-purple-900/50">
+        </div>
+        <input id="adm-cover" type="text" placeholder="Cover Image URL" class="w-full bg-[#1b162a] text-white p-2.5 rounded-lg border border-purple-900/50">
+        <textarea id="adm-synopsis" rows="2" placeholder="Synopsis..." class="w-full bg-[#1b162a] text-white p-2.5 rounded-lg border border-purple-900/50"></textarea>
+        <textarea id="adm-pages" rows="3" placeholder="Chapter 1 image URLs (one per line)" class="w-full bg-[#1b162a] text-white p-2.5 rounded-lg border border-purple-900/50"></textarea>
+        
+        <button onclick="saveNewSeries()" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-2.5 rounded-lg transition">Publish Series</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="bg-[#120f1c] border-t border-purple-900/30 text-center py-6 text-xs text-gray-500 mt-12">
+    <p class="font-bold text-gray-300">VOIDSCANS</p>
+    <p class="text-[10px] mt-1">Clean Reader Engine</p>
+  </footer>
+
+  <script>
+    const DEFAULT_DB = [
+      {
+        id: "shadow-monarch",
+        title: "Rise of the Shadow Sovereign",
+        status: "Ongoing",
+        rating: "9.9",
+        views: 145200,
+        genres: ["Action", "Fantasy", "System"],
+        cover: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=80",
+        synopsis: "In a world where dungeons open across the globe, the weakest E-rank hunter awakens a secret necromancer system after a fatal double dungeon raid.",
+        featured: true,
+        chapters: [
+          {
+            num: 1,
+            title: "The Double Dungeon",
+            date: "2 days ago",
+            pages: [
+              "https://placehold.co/800x1250/120924/a855f7?text=Chapter+1+-+Panel+1",
+              "https://placehold.co/800x1250/090514/e9d5ff?text=Chapter+1+-+Panel+2"
+            ]
+          },
+          {
+            num: 2,
+            title: "Boss Battle",
+            date: "1 hour ago",
+            pages: [
+              "https://placehold.co/800x1250/150d2a/c084fc?text=Chapter+2+-+Panel+1"
+            ]
+          }
+        ]
+      },
+      {
+        id: "regression-sword",
+        title: "Return of the Ruined Swordmaster",
+        status: "Ongoing",
+        rating: "9.7",
+        views: 98400,
+        genres: ["Action", "Martial Arts", "Regression"],
+        cover: "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=600&auto=format&fit=crop&q=80",
+        synopsis: "Betrayed by his own clan after reaching the pinnacle of swordsmanship, he opens his eyes 20 years in the past in his crippled teenage body.",
+        featured: false,
+        chapters: [
+          {
+            num: 1,
+            title: "Chapter 1",
+            date: "Yesterday",
+            pages: [
+              "https://placehold.co/800x1250/1a1025/e9d5ff?text=Swordmaster+Ch.1"
+            ]
+          }
+        ]
+      }
+    ];
+
+    let MANGA_DB = JSON.parse(localStorage.getItem("void_custom_db")) || DEFAULT_DB;
+    let currentSeries = null;
+    let currentChapterIndex = 0;
+    let activeGenre = "All";
+    let featuredIndex = 0;
+    let readerMode = "webtoon";
+    let currentPageIndex = 0;
+    let autoScrollInterval = null;
+    let autoScrollSpeed = 0;
+
+    function saveDB() {
+      localStorage.setItem("void_custom_db", JSON.stringify(MANGA_DB));
+    }
+
+    function renderFeatured() {
+      const featList = MANGA_DB.filter(m => m.featured);
+      const feat = featList[featuredIndex % featList.length] || MANGA_DB[0];
+      const latestChap = feat.chapters[feat.chapters.length - 1];
+
+      document.getElementById("featured-banner").innerHTML = `
+        <div class="flex flex-col md:flex-row items-center gap-6">
+          <img onclick="openSeries('${feat.id}')" src="${feat.cover}" class="w-32 h-44 sm:w-36 sm:h-52 object-cover rounded-lg shadow-lg cursor-pointer">
+          <div class="flex-1 text-center md:text-left">
+            <span class="text-[10px] uppercase font-bold tracking-wider text-purple-400 bg-purple-950/50 border border-purple-950 px-2 py-0.5 rounded">Featured Series</span>
+            <h1 onclick="openSeries('${feat.id}')" class="text-xl sm:text-3xl font-bold text-white mt-1 mb-2 cursor-pointer hover:text-purple-300">${feat.title}</h1>
+            <p class="text-gray-400 text-xs sm:text-sm line-clamp-2 mb-4">${feat.synopsis}</p>
+            <div class="flex flex-wrap justify-center md:justify-start gap-2">
+              <button onclick="openReader('${feat.id}', ${feat.chapters.length - 1})" class="bg-purple-600 hover:bg-purple-500 text-white font-bold px-4 py-2 rounded-lg text-xs transition">
+                Read Chapter ${latestChap ? latestChap.num : 1}
+              </button>
+              <button onclick="openSeries('${feat.id}')" class="bg-[#1b162a] text-gray-300 font-medium px-4 py-2 rounded-lg text-xs border border-purple-950">
+                Details
+              </button>
+              <button onclick="nextSlide()" class="bg-[#1b162a] text-gray-400 px-3 py-2 rounded-lg text-xs border border-purple-950">Next</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function nextSlide() {
+      featuredIndex++;
+      renderFeatured();
+    }
+
+    function getHistory() {
+      return JSON.parse(localStorage.getItem("void_history") || "[]");
+    }
+
+    function saveHistory(seriesId, chapIdx) {
+      const m = MANGA_DB.find(x => x.id === seriesId);
+      if (!m) return;
+      let hist = getHistory().filter(h => h.id !== seriesId);
+      hist.unshift({ id: m.id, title: m.title, cover: m.cover, chapIdx, chapNum: m.chapters[chapIdx]?.num || 1 });
+      localStorage.setItem("void_history", JSON.stringify(hist.slice(0, 3)));
+      renderHistory();
+    }
+
+    function clearHistory() {
+      localStorage.removeItem("void_history");
+      renderHistory();
+    }
+
+    function renderHistory() {
+      const hist = getHistory();
+      const sec = document.getElementById("continue-reading-section");
+      if (hist.length === 0) { sec.classList.add("hidden"); return; }
+      sec.classList.remove("hidden");
+      document.getElementById("history-list").innerHTML = hist.map(h => `
+        <div onclick="openReader('${h.id}', ${h.chapIdx})" class="bg-[#1b162a] border border-purple-950 rounded-lg p-2 flex items-center gap-3 cursor-pointer">
+          <img src="${h.cover}" class="w-10 h-14 object-cover rounded">
+          <div class="flex-1 min-w-0">
+            <h4 class="text-xs font-bold text-white truncate">${h.title}</h4>
+            <p class="text-[11px] text-purple-400">Chapter ${h.chapNum}</p>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function renderTrending(period = 'daily') {
+      ['daily', 'weekly'].forEach(p => {
+        const btn = document.getElementById('tab-' + p);
+        if (btn) btn.className = p === period ? "px-2.5 py-1 rounded-md bg-purple-600 text-white" : "px-2.5 py-1 rounded-md text-gray-400";
+      });
+      let sorted = [...MANGA_DB].sort((a, b) => (b.views || 50000) - (a.views || 50000));
+      document.getElementById("trending-list").innerHTML = sorted.slice(0, 6).map((m, idx) => `
+        <div onclick="openSeries('${m.id}')" class="flex items-center gap-3 p-1.5 rounded-lg hover:bg-[#1b162a] cursor-pointer">
+          <span class="text-xs font-bold text-gray-500 w-4">${idx + 1}</span>
+          <img src="${m.cover}" class="w-9 h-12 object-cover rounded">
+          <div class="flex-1 min-w-0">
+            <h4 class="text-xs font-bold text-white truncate">${m.title}</h4>
+            <p class="text-[10px] text-gray-400">${m.genres[0] || 'Manga'}</p>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function renderGenres() {
+      const genres = ["All", "Action", "Fantasy", "System", "Martial Arts", "Regression", "Magic"];
+      document.getElementById("genre-bar").innerHTML = genres.map(g => `
+        <button onclick="filterByGenre('${g}')" class="px-3 py-1 rounded-lg text-xs font-medium transition ${activeGenre === g ? 'bg-purple-600 text-white' : 'bg-[#120f1c] text-gray-400 border border-purple-950'}">
+          ${g}
+        </button>
+      `).join("");
+    }
+
+    function filterByGenre(genre) {
+      activeGenre = genre;
+      renderGenres();
+      const filtered = genre === "All" ? MANGA_DB : MANGA_DB.filter(m => m.genres.includes(genre));
+      document.getElementById("grid-title").innerText = genre === 'All' ? 'Latest Updates' : genre;
+      renderGrid(filtered);
+    }
+
+    function handleSort(type) {
+      let list = [...MANGA_DB];
+      if (type === "rating") list.sort((a, b) => parseFloat(b.rating) - parseFloat(a.rating));
+      if (type === "views") list.sort((a, b) => (b.views || 0) - (a.views || 0));
+      if (type === "az") list.sort((a, b) => a.title.localeCompare(b.title));
+      renderGrid(list);
+    }
+
+    function renderGrid(list) {
+      const grid = document.getElementById("manga-grid");
+      document.getElementById("bm-count").innerText = getBookmarks().length;
+      if (list.length === 0) {
+        grid.innerHTML = `<p class="col-span-full py-8 text-center text-gray-400 text-xs">No series found.</p>`;
+        return;
+      }
+      grid.innerHTML = list.map(m => {
+        const lastChaps = [...m.chapters].reverse().slice(0, 2);
+        return `
+          <div class="bg-[#120f1c] border border-purple-900/40 rounded-xl overflow-hidden flex flex-col shadow">
+            <div onclick="openSeries('${m.id}')" class="relative cursor-pointer group">
+              <img src="${m.cover}" class="w-full h-48 sm:h-56 object-cover group-hover:scale-105 transition">
+              <span class="absolute top-2 right-2 bg-black/70 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">${m.rating}</span>
+            </div>
+            <div class="p-2.5 flex-1 flex flex-col justify-between">
+              <h3 onclick="openSeries('${m.id}')" class="font-bold text-xs text-white truncate mb-2 cursor-pointer hover:text-purple-400">${m.title}</h3>
+              <div class="space-y-1">
+                ${lastChaps.map(c => {
+                  const idx = m.chapters.findIndex(ch => ch.num === c.num);
+                  return `
+                    <button onclick="openReader('${m.id}', ${idx})" class="w-full bg-[#1b162a] hover:bg-purple-950/40 rounded px-2 py-1 flex items-center justify-between text-[11px]">
+                      <span class="text-gray-300">Ch. ${c.num}</span>
+                      <span class="text-[10px] text-gray-500">${c.date}</span>
+                    </button>
+                  `;
+                }).join("")}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function getBookmarks() {
+      return JSON.parse(localStorage.getItem("void_bookmarks") || "[]");
+    }
+
+    function toggleBookmark(id) {
+      let bms = getBookmarks();
+      if (bms.includes(id)) bms = bms.filter(item => item !== id);
+      else bms.push(id);
+      localStorage.setItem("void_bookmarks", JSON.stringify(bms));
+      openSeries(id);
+    }
+
+    function openSeries(id) {
+      const m = MANGA_DB.find(item => item.id === id);
+      if (!m) return;
+      currentSeries = m;
+      m.views = (m.views || 40000) + 1;
+      saveDB();
+
+      const isBookmarked = getBookmarks().includes(m.id);
+      document.getElementById("home-view").classList.add("hidden");
+      document.getElementById("series-view").classList.remove("hidden");
+
+      document.getElementById("series-details").innerHTML = `
+        <div class="flex flex-col sm:flex-row gap-5 items-center sm:items-start">
+          <img src="${m.cover}" class="w-36 h-48 sm:w-44 sm:h-60 object-cover rounded-lg shadow-md border border-purple-900/50">
+          <div class="flex-1 text-center sm:text-left">
+            <div class="flex flex-wrap justify-center sm:justify-start gap-2 mb-2 text-xs">
+              <span class="bg-purple-950 text-purple-300 px-2 py-0.5 rounded font-medium">${m.status}</span>
+              <span class="text-gray-400">Rating: ${m.rating}</span>
+              <span class="text-gray-400">Views: ${m.views.toLocaleString()}</span>
+            </div>
+            <h1 class="text-xl sm:text-2xl font-bold text-white mb-2">${m.title}</h1>
+            <p class="text-xs text-gray-300 mb-4 leading-relaxed">${m.synopsis}</p>
+            <div class="flex flex-wrap justify-center sm:justify-start gap-2">
+              <button onclick="openReader('${m.id}', 0)" class="bg-purple-600 hover:bg-purple-500 text-white font-bold px-4 py-2 rounded-lg text-xs">Read First Chapter</button>
+              <button onclick="toggleBookmark('${m.id}')" class="px-4 py-2 rounded-lg text-xs font-medium border ${isBookmarked ? 'bg-purple-950 border-purple-500 text-white' : 'bg-[#1b162a] border-purple-950 text-gray-300'}">
+                ${isBookmarked ? 'Bookmarked' : 'Bookmark'}
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const chList = [...m.chapters].reverse();
+      document.getElementById("chapter-list").innerHTML = chList.map(c => {
+        const idx = m.chapters.findIndex(ch => ch.num === c.num);
+        return `
+          <div onclick="openReader('${m.id}', ${idx})" class="bg-[#1b162a] hover:bg-purple-950/30 border border-purple-950 p-3 rounded-lg flex items-center justify-between cursor-pointer">
+            <span class="font-bold text-xs text-white">Chapter ${c.num}</span>
+            <span class="text-[10px] text-gray-400">${c.date}</span>
+          </div>
+        `;
+      }).join("");
+      window.scrollTo(0, 0);
+    }
+
+    function openReader(seriesId, chapIdx) {
+      const m = MANGA_DB.find(item => item.id === seriesId);
+      if (!m) return;
+      currentSeries = m;
+      currentChapterIndex = Number(chapIdx);
+      const chap = m.chapters[currentChapterIndex];
+
+      saveHistory(seriesId, currentChapterIndex);
+
+      const rv = document.getElementById("reader-view");
+      rv.classList.remove("hidden");
+      document.body.style.overflow = "hidden";
+
+      document.getElementById("reader-title").innerText = `${m.title} - Ch. ${chap.num}`;
+      document.getElementById("reader-back-btn").onclick = () => closeReader(m.id);
+
+      const select = document.getElementById("reader-chapter-select");
+      select.innerHTML = m.chapters.map((c, idx) => `
+        <option value="${idx}" ${idx === currentChapterIndex ? 'selected' : ''}>Ch. ${c.num}</option>
+      `).join("");
+
+      renderReaderImages();
+
+      const prevBtn = document.getElementById("prev-chap-btn");
+      const nextBtn = document.getElementById("next-chap-btn");
+      prevBtn.disabled = currentChapterIndex === 0;
+      nextBtn.disabled = currentChapterIndex === m.chapters.length - 1;
+      prevBtn.onclick = () => openReader(m.id, currentChapterIndex - 1);
+      nextBtn.onclick = () => openReader(m.id, currentChapterIndex + 1);
+
+      renderComments();
+      rv.scrollTo(0, 0);
+    }
+
+    function renderReaderImages() {
+      const chap = currentSeries.chapters[currentChapterIndex];
+      const container = document.getElementById("reader-images");
+      const pageControls = document.getElementById("page-mode-controls");
+
+      if (readerMode === "webtoon") {
+        pageControls.classList.add("hidden");
+        container.innerHTML = chap.pages.map(url => `<img src="${url}" style="max-width: 800px; width: 100%;" loading="lazy">`).join("");
+      } else {
+        pageControls.classList.remove("hidden");
+        document.getElementById("page-indicator").innerText = `${currentPageIndex + 1} / ${chap.pages.length}`;
+        container.innerHTML = `<img src="${chap.pages[currentPageIndex]}" style="max-width: 800px; width: 100%;">`;
+      }
+    }
+
+    function toggleReaderMode() {
+      readerMode = readerMode === "webtoon" ? "page" : "webtoon";
+      document.getElementById("mode-btn").innerText = readerMode === "webtoon" ? "Webtoon" : "Page Mode";
+      renderReaderImages();
+    }
+
+    function changeSinglePage(dir) {
+      const chap = currentSeries.chapters[currentChapterIndex];
+      const next = currentPageIndex + dir;
+      if (next >= 0 && next < chap.pages.length) {
+        currentPageIndex = next;
+        renderReaderImages();
+        document.getElementById("reader-view").scrollTo(0, 0);
+      }
+    }
+
+    function toggleAutoScroll() {
+      autoScrollSpeed = (autoScrollSpeed + 1) % 4;
+      clearInterval(autoScrollInterval);
+      const btn = document.getElementById("autoscroll-btn");
+      if (autoScrollSpeed === 0) {
+        btn.innerText = "Auto Scroll";
+      } else {
+        btn.innerText = `Scroll ${autoScrollSpeed}x`;
+        const rv = document.getElementById("reader-view");
+        autoScrollInterval = setInterval(() => rv.scrollBy(0, autoScrollSpeed * 1.5), 20);
+      }
+    }
+
+    document.getElementById("reader-view").addEventListener("scroll", function() {
+      const scrollTop = this.scrollTop;
+      const scrollHeight = this.scrollHeight - this.clientHeight;
+      const pct = scrollHeight > 0 ? (scrollTop / scrollHeight) * 100 : 0;
+      document.getElementById("read-progress").style.width = pct + "%";
+    });
+
+    function changeChapterFromSelect(idx) {
+      openReader(currentSeries.id, Number(idx));
+    }
+
+    function closeReader(seriesId) {
+      clearInterval(autoScrollInterval);
+      autoScrollSpeed = 0;
+      document.getElementById("reader-view").classList.add("hidden");
+      document.body.style.overflow = "auto";
+      openSeries(seriesId);
+    }
+
+    function toggleReaderBars() {
+      document.getElementById("reader-top-bar").classList.toggle("-translate-y-full");
+    }
+
+    function renderComments() {
+      const key = `comments_${currentSeries.id}_${currentChapterIndex}`;
+      const list = JSON.parse(localStorage.getItem(key) || '[{"name":"User","text":"Clean layout.","time":"1h ago"}]');
+      document.getElementById("comments-list").innerHTML = list.map(c => `
+        <div class="bg-[#1b162a] border border-purple-950 p-2.5 rounded-lg text-xs">
+          <div class="flex justify-between text-[10px] text-gray-400 mb-1">
+            <span class="font-bold text-purple-300">${c.name}</span>
+            <span>${c.time}</span>
+          </div>
+          <p class="text-gray-200">${c.text}</p>
+        </div>
+      `).join("");
+    }
+
+    function postComment() {
+      const name = document.getElementById("comment-name").value.trim() || "Reader";
+      const text = document.getElementById("comment-text").value.trim();
+      if (!text) return;
+      const key = `comments_${currentSeries.id}_${currentChapterIndex}`;
+      const list = JSON.parse(localStorage.getItem(key) || '[]');
+      list.unshift({ name, text, time: "Just now" });
+      localStorage.setItem(key, JSON.stringify(list));
+      document.getElementById("comment-text").value = "";
+      renderComments();
+    }
+
+    function openAdminModal() { document.getElementById("admin-modal").classList.remove("hidden"); }
+    function closeAdminModal() { document.getElementById("admin-modal").classList.add("hidden"); }
+
+    function saveNewSeries() {
+      const title = document.getElementById("adm-title").value.trim();
+      if (!title) return alert("Title required.");
+      const genres = document.getElementById("adm-genres").value.split(",").map(s => s.trim()).filter(Boolean);
+      const rating = document.getElementById("adm-rating").value.trim() || "9.5";
+      const cover = document.getElementById("adm-cover").value.trim() || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500";
+      const synopsis = document.getElementById("adm-synopsis").value.trim() || "No synopsis.";
+      const rawPages = document.getElementById("adm-pages").value.split("\n").map(s => s.trim()).filter(Boolean);
+
+      const newSeries = {
+        id: "series-" + Date.now(),
+        title,
+        status: "Ongoing",
+        rating,
+        views: 1,
+        genres: genres.length ? genres : ["Action"],
+        cover,
+        synopsis,
+        featured: true,
+        chapters: [{ num: 1, title: "Chapter 1", date: "Just now", pages: rawPages.length ? rawPages : ["https://placehold.co/800x1200/181028/a855f7?text=Ch.1"] }]
+      };
+
+      MANGA_DB.unshift(newSeries);
+      saveDB();
+      closeAdminModal();
+      showHome();
+    }
+
+    async function searchMangaDex() {
+      const query = document.getElementById("search-input").value.trim() || "Solo";
+      const grid = document.getElementById("manga-grid");
+      document.getElementById("series-view").classList.add("hidden");
+      document.getElementById("home-view").classList.remove("hidden");
+      document.getElementById("grid-title").innerText = `Search: ${query}`;
+      grid.innerHTML = `<p class="col-span-full text-center py-8 text-xs text-gray-400">Searching MangaDex...</p>`;
+
+      try {
+        const res = await fetch(`https://api.mangadex.org/manga?title=${encodeURIComponent(query)}&limit=6&includes[]=cover_art&contentRating[]=safe`);
+        const data = await res.json();
+        if (!data.data || data.data.length === 0) {
+          grid.innerHTML = `<p class="col-span-full text-center py-8 text-xs text-gray-400">No results found.</p>`;
+          return;
+        }
+        grid.innerHTML = data.data.map(item => {
+          const title = item.attributes.title.en || Object.values(item.attributes.title)[0] || "Series";
+          const coverRel = item.relationships.find(r => r.type === "cover_art");
+          const fileName = coverRel?.attributes?.fileName;
+          const coverUrl = fileName ? `https://uploads.mangadex.org/covers/${item.id}/${fileName}.256.jpg` : "https://placehold.co/400x600";
+          return `
+            <div class="bg-[#120f1c] border border-purple-900/40 rounded-xl overflow-hidden flex flex-col shadow">
+              <img src="${coverUrl}" class="w-full h-48 object-cover">
+              <div class="p-2.5 flex-1 flex flex-col justify-between">
+                <h3 class="font-bold text-xs text-white truncate mb-2">${title}</h3>
+                <button onclick="importManga('${item.id}', '${title.replace(/'/g, "")}', '${coverUrl}')" class="w-full bg-purple-600 hover:bg-purple-500 text-white py-1.5 rounded text-[11px] font-bold">Import</button>
+              </div>
+            </div>
+          `;
+        }).join("");
+      } catch (e) {
+        grid.innerHTML = `<p class="col-span-full text-center py-8 text-xs text-red-400">API connection error.</p>`;
+      }
+    }
+
+    async function importManga(mdId, title, coverUrl) {
+      if (!MANGA_DB.some(m => m.id === mdId)) {
+        MANGA_DB.unshift({
+          id: mdId,
+          title,
+          status: "Ongoing",
+          rating: "9.5",
+          views: 100,
+          genres: ["Imported"],
+          cover: coverUrl,
+          synopsis: "Imported via API.",
+          featured: false,
+          chapters: [{ num: 1, title: "Chapter 1", date: "Just now", pages: ["https://placehold.co/800x1200?text=Imported+Page"] }]
+        });
+        saveDB();
+      }
+      openSeries(mdId);
+    }
+
+    function openRandomSeries() {
+      const rand = MANGA_DB[Math.floor(Math.random() * MANGA_DB.length)];
+      openSeries(rand.id);
+    }
+
+    function showHome() {
+      document.getElementById("series-view").classList.add("hidden");
+      document.getElementById("home-view").classList.remove("hidden");
+      activeGenre = "All";
+      renderFeatured();
+      renderHistory();
+      renderGenres();
+      renderTrending('daily');
+      document.getElementById("grid-title").innerText = "Latest Updates";
+      renderGrid(MANGA_DB);
+    }
+
+    function showBookmarks() {
+      document.getElementById("series-view").classList.add("hidden");
+      document.getElementById("home-view").classList.remove("hidden");
+      const bms = getBookmarks();
+      const saved = MANGA_DB.filter(m => bms.includes(m.id));
+      document.getElementById("grid-title").innerText = "Library";
+      renderGrid(saved);
+    }
+
+    function handleSearch() {
+      const q = document.getElementById("search-input").value.toLowerCase();
+      document.getElementById("series-view").classList.add("hidden");
+      document.getElementById("home-view").classList.remove("hidden");
+      const filtered = MANGA_DB.filter(m => m.title.toLowerCase().includes(q));
+      renderGrid(filtered);
+    }
+
+    showHome();
+  </script>
+</body>
+</html>
